@@ -9,25 +9,28 @@ import random
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
 # --- 便利関数 ---
-@st.cache_data
 def get_audio_base64(text):
+    """テキストを音声に変換してBase64で返す（キャッシュしないことで即時性を高める）"""
     tts = gTTS(text=text, lang='ja')
-    tts.save("temp.mp3")
-    with open("temp.mp3", "rb") as f:
+    tts.save("temp_result.mp3")
+    with open("temp_result.mp3", "rb") as f:
         audio_bytes = f.read()
     return base64.b64encode(audio_bytes).decode()
 
 def play_audio(text):
+    """音声を自動再生するHTMLを生成"""
     audio_base64 = get_audio_base64(text)
     audio_html = f'<audio src="data:audio/mp3;base64,{audio_base64}" autoplay style="display:none;">'
     st.components.v1.html(audio_html, height=0)
 
 def get_image_base64(path):
+    """画像をBase64に変換"""
     with open(path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 def speech_recognition_js():
+    """音声認識用JavaScriptボタン"""
     js_code = """
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -62,7 +65,7 @@ original_quiz_data = [
     {"answer": "めろん", "file": "melon.jpg"},
     {"answer": "ぱんだ", "file": "panda.jpg"},
     {"answer": "れもん", "file": "lemon.jpg"},
-    {"answer": "すいか", "file": "suika.jpg"},
+    {"answer": "すいか", "file": "すいか.jpg"},
     {"answer": "うさぎ", "file": "usagi.jpg"},
     {"answer": "はりねずみ", "file": "harinezumi.jpg"},
     {"answer": "しまえなが", "file": "shimaenaga.jpg"},
@@ -77,14 +80,14 @@ if "shuffled_data" not in st.session_state:
     st.session_state.status = "waiting"
     st.session_state.start_time = 0
     st.session_state.elapsed = 0
+    st.session_state.last_played = "" # 重複再生防止用
 
-# --- 全体共通のCSS（ここでサイズを強制固定） ---
+# --- CSS設定 ---
 st.markdown("""
 <style>
-    /* 画像を囲う額縁のサイズを完全に固定 */
     .image-container {
         width: 100%;
-        max-width: 800px; /* パソコンで見ても大きくなりすぎないように */
+        max-width: 800px;
         height: 500px;
         margin: 0 auto;
         border: 5px solid #FF4B4B;
@@ -92,14 +95,11 @@ st.markdown("""
         overflow: hidden;
         position: relative;
     }
-    /* 画像そのものの設定 */
     .quiz-img {
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
-        display: block;
     }
-    /* ボタンの高さ揃え */
     div.stButton > button { height: 60px; font-size: 20px !important; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
@@ -112,6 +112,7 @@ with btn_col1:
     if st.button("▶ スタート", use_container_width=True):
         st.session_state.status = "playing"
         st.session_state.start_time = time.time()
+        st.session_state.last_played = "" # リセット
         st.rerun()
 with btn_col2:
     if st.button("💡 わかった！", use_container_width=True):
@@ -125,17 +126,17 @@ with btn_col3:
             st.session_state.quiz_index += 1
             st.session_state.status = "playing"
             st.session_state.start_time = time.time()
+            st.session_state.last_played = "" # リセット
             st.rerun()
 
 st.divider()
 
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 
-# メイン表示エリア
 if os.path.exists(current_quiz["file"]):
     img_base64 = get_image_base64(current_quiz["file"])
     
-    # ぼかしの計算
+    # ぼかし計算
     if st.session_state.status == "playing":
         current_elapsed = time.time() - st.session_state.start_time
         if current_elapsed >= 10:
@@ -148,18 +149,23 @@ if os.path.exists(current_quiz["file"]):
     else:
         calc_blur = 50
 
-    # 【重要】playingでもstopでも全く同じHTML構造を使う
     st.markdown(f"""
         <div class="image-container">
             <img src="data:image/jpeg;base64,{img_base64}" class="quiz-img" style="filter: blur({calc_blur}px);">
         </div>
         """, unsafe_allow_html=True)
     
-    if st.session_state.status == "playing":
+    # 「これなーんだ？」の音声
+    if st.session_state.status == "playing" and st.session_state.last_played == "":
         play_audio("これなーんだ？")
+        st.session_state.last_played = "intro"
+        time.sleep(0.1)
+        st.rerun()
+    elif st.session_state.status == "playing":
         time.sleep(0.1)
         st.rerun()
 
+    # 回答セクション
     if st.session_state.status == "stop":
         st.divider()
         st.write(f"### 第 {st.session_state.quiz_index + 1} 問： 🎤 こたえを いってね！")
@@ -168,21 +174,28 @@ if os.path.exists(current_quiz["file"]):
 
         if speech_val:
             st.write(f"きみの こたえ: **{speech_val}**")
+            # 正解判定
             if speech_val in current_quiz["answer"]:
-                # 正解なら額縁の中の画像だけぼかしを消す
-                st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s !important; }</style>', unsafe_allow_html=True)
-                st.success("## ✨ せいかい！！ ✨")
-                play_audio("ピンポーン！ 正解です。やったね！")
+                if st.session_state.last_played != "correct":
+                    st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
+                    st.success("## ✨ せいかい！！ ✨")
+                    play_audio("ピンポーン！ 正解です。やったね！")
+                    st.session_state.last_played = "correct"
             else:
-                st.warning("## おしい！")
-                play_audio("残念！")
+                if st.session_state.last_played != "wrong":
+                    st.warning("## おしい！")
+                    play_audio("残念！")
+                    st.session_state.last_played = "wrong"
 else:
     st.error("がぞうが ないよ！")
 
-# 全問終了
+# 最初からあそぶ
 if st.session_state.quiz_index == len(st.session_state.shuffled_data) - 1 and st.session_state.status == "stop":
     if st.button("最初からあそぶ", use_container_width=True):
         random.shuffle(st.session_state.shuffled_data)
         st.session_state.quiz_index = 0
         st.session_state.status = "waiting"
+        st.session_state.last_played = ""
         st.rerun()
+
+           

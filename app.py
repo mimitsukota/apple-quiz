@@ -76,6 +76,7 @@ if "shuffled_data" not in st.session_state:
     st.session_state.quiz_index = 0
     st.session_state.status = "waiting"
     st.session_state.start_time = 0
+    st.session_state.elapsed = 0
 
 # --- 画面表示 ---
 st.markdown("<h1 style='text-align: center; font-size: 70px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
@@ -89,7 +90,7 @@ with btn_col1:
 with btn_col2:
     if st.button("💡 わかった！", use_container_width=True):
         if st.session_state.status == "playing":
-            # 経過時間を記録して停止状態へ
+            # 押した瞬間の経過時間を保存
             st.session_state.elapsed = time.time() - st.session_state.start_time
             st.session_state.status = "stop"
             st.rerun()
@@ -112,9 +113,11 @@ with col_main:
     if os.path.exists(current_quiz["file"]):
         img_base64 = get_image_base64(current_quiz["file"])
         
+        # --- クイズ進行中 ---
         if st.session_state.status == "playing":
             play_audio("これなーんだ？")
             placeholder = st.empty()
+            # 10秒かけて blur(50px) から blur(0px) になる設定
             blur_css = f"""
             <style>
             @keyframes reveal {{ from {{ filter: blur(50px); }} to {{ filter: blur(0px); }} }}
@@ -124,23 +127,24 @@ with col_main:
             """
             placeholder.markdown(blur_css, unsafe_allow_html=True)
             
-            # 10秒経つまでループ（途中でボタンが押されたら抜けるため）
-            for i in range(100):
-                time.sleep(0.1)
-                # 10秒経過したら自動停止
-                if time.time() - st.session_state.start_time >= 10:
+            # 0.1秒ごとにチェックし、10秒経ったら自動停止
+            while st.session_state.status == "playing":
+                current_elapsed = time.time() - st.session_state.start_time
+                if current_elapsed >= 10:
                     st.session_state.elapsed = 10
                     st.session_state.status = "stop"
                     st.rerun()
+                time.sleep(0.1)
 
+        # --- 停止状態（回答待ち） ---
         elif st.session_state.status == "stop":
-            # 現在の「ぼかし具合」を計算（10秒で50pxから0pxになる計算）
-            # わかった！を押した瞬間のぼかしを再現する
-            current_blur = max(0, 50 - (st.session_state.elapsed * 5))
+            # 経過時間から現在のぼかし量を計算 (50pxから1秒間に5pxずつ減る計算)
+            # 10秒以上経っていたら 0px 固定
+            calc_blur = max(0, 50 - (st.session_state.elapsed * 5))
             
             st.markdown(f"""
                 <img src="data:image/jpeg;base64,{img_base64}" 
-                style="width:100%; height:500px; object-fit:cover; border-radius:30px; border: 5px solid #FF4B4B; filter: blur({current_blur}px);">
+                style="width:100%; height:500px; object-fit:cover; border-radius:30px; border: 5px solid #FF4B4B; filter: blur({calc_blur}px);">
                 """, unsafe_allow_html=True)
             
             st.divider()
@@ -151,8 +155,8 @@ with col_main:
             if speech_val:
                 st.write(f"きみの こたえ: **{speech_val}**")
                 if speech_val in current_quiz["answer"]:
-                    # 正解の時はぼかしを消す
-                    st.markdown(f'<style>.stApp img {{ filter: blur(0px) !important; }}</style>', unsafe_allow_html=True)
+                    # 正解ならぼかしを消して答えを見せる
+                    st.markdown('<style>img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
                     st.success("## ✨ せいかい！！ ✨")
                     play_audio("ピンポーン！ 正解です。やったね！")
                 else:
@@ -161,6 +165,7 @@ with col_main:
     else:
         st.error("がぞうが ないよ！")
 
+# 全問終了
 if st.session_state.quiz_index == len(st.session_state.shuffled_data) - 1 and st.session_state.status == "stop":
     if st.button("最初からあそぶ", use_container_width=True):
         random.shuffle(st.session_state.shuffled_data)

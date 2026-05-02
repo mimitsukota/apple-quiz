@@ -10,7 +10,7 @@ st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
 # --- 便利関数 ---
 def get_audio_base64(text):
-    """テキストを音声に変換してBase64で返す（キャッシュしないことで即時性を高める）"""
+    """テキストを音声に変換してBase64で返す"""
     tts = gTTS(text=text, lang='ja')
     tts.save("temp_result.mp3")
     with open("temp_result.mp3", "rb") as f:
@@ -18,9 +18,13 @@ def get_audio_base64(text):
     return base64.b64encode(audio_bytes).decode()
 
 def play_audio(text):
-    """音声を自動再生するHTMLを生成"""
+    """音声を自動再生するHTMLを生成（コンポーネント化して確実に実行）"""
     audio_base64 = get_audio_base64(text)
-    audio_html = f'<audio src="data:audio/mp3;base64,{audio_base64}" autoplay style="display:none;">'
+    audio_html = f'''
+        <audio autoplay="true">
+            <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+        </audio>
+    '''
     st.components.v1.html(audio_html, height=0)
 
 def get_image_base64(path):
@@ -46,7 +50,7 @@ def speech_recognition_js():
     const startSpeech = () => { recognition.start(); };
     </script>
     <div style="display: flex; justify-content: center;">
-        <button onclick="startSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 15px; border-radius: 15px; width: 80%; font-size: 20px; font-weight: bold; cursor: pointer;">
+        <button onclick="startSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 15px; border-radius: 15px; width: 80%; font-size: 20px; font-weight: bold; cursor: pointer; -webkit-appearance: none;">
             🎤 おして、こたえを おしえてね！
         </button>
     </div>
@@ -65,7 +69,7 @@ original_quiz_data = [
     {"answer": "めろん", "file": "melon.jpg"},
     {"answer": "ぱんだ", "file": "panda.jpg"},
     {"answer": "れもん", "file": "lemon.jpg"},
-    {"answer": "すいか", "file": "すいか.jpg"},
+    {"answer": "すいか", "file": "suika.jpg"},
     {"answer": "うさぎ", "file": "usagi.jpg"},
     {"answer": "はりねずみ", "file": "harinezumi.jpg"},
     {"answer": "しまえなが", "file": "shimaenaga.jpg"},
@@ -80,7 +84,7 @@ if "shuffled_data" not in st.session_state:
     st.session_state.status = "waiting"
     st.session_state.start_time = 0
     st.session_state.elapsed = 0
-    st.session_state.last_played = "" # 重複再生防止用
+    st.session_state.played_for_this_step = False
 
 # --- CSS設定 ---
 st.markdown("""
@@ -112,13 +116,14 @@ with btn_col1:
     if st.button("▶ スタート", use_container_width=True):
         st.session_state.status = "playing"
         st.session_state.start_time = time.time()
-        st.session_state.last_played = "" # リセット
+        st.session_state.played_for_this_step = False
         st.rerun()
 with btn_col2:
     if st.button("💡 わかった！", use_container_width=True):
         if st.session_state.status == "playing":
             st.session_state.elapsed = time.time() - st.session_state.start_time
             st.session_state.status = "stop"
+            st.session_state.played_for_this_step = False
             st.rerun()
 with btn_col3:
     if st.button("👉 つぎへ", use_container_width=True):
@@ -126,7 +131,7 @@ with btn_col3:
             st.session_state.quiz_index += 1
             st.session_state.status = "playing"
             st.session_state.start_time = time.time()
-            st.session_state.last_played = "" # リセット
+            st.session_state.played_for_this_step = False
             st.rerun()
 
 st.divider()
@@ -155,20 +160,17 @@ if os.path.exists(current_quiz["file"]):
         </div>
         """, unsafe_allow_html=True)
     
-    # 「これなーんだ？」の音声
-    if st.session_state.status == "playing" and st.session_state.last_played == "":
+    # 出題時の音声
+    if st.session_state.status == "playing" and not st.session_state.played_for_this_step:
         play_audio("これなーんだ？")
-        st.session_state.last_played = "intro"
-        time.sleep(0.1)
-        st.rerun()
-    elif st.session_state.status == "playing":
-        time.sleep(0.1)
-        st.rerun()
+        st.session_state.played_for_this_step = True
 
     # 回答セクション
     if st.session_state.status == "stop":
         st.divider()
         st.write(f"### 第 {st.session_state.quiz_index + 1} 問： 🎤 こたえを いってね！")
+        
+        # 音声入力ボックス
         speech_val = st.text_input("speech_input", label_visibility="collapsed", key="speech_input_widget")
         speech_recognition_js()
 
@@ -176,16 +178,18 @@ if os.path.exists(current_quiz["file"]):
             st.write(f"きみの こたえ: **{speech_val}**")
             # 正解判定
             if speech_val in current_quiz["answer"]:
-                if st.session_state.last_played != "correct":
-                    st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
-                    st.success("## ✨ せいかい！！ ✨")
-                    play_audio("ピンポーン！ 正解です。やったね！")
-                    st.session_state.last_played = "correct"
+                st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
+                st.success("## ✨ せいかい！！ ✨")
+                # 判定結果が出た瞬間に再生
+                play_audio("ピンポーン！ 正解です。やったね！")
             else:
-                if st.session_state.last_played != "wrong":
-                    st.warning("## おしい！")
-                    play_audio("残念！")
-                    st.session_state.last_played = "wrong"
+                st.warning("## おしい！")
+                play_audio("残念！")
+                
+    # 画面更新を維持するためのスリープ
+    if st.session_state.status == "playing":
+        time.sleep(0.1)
+        st.rerun()
 else:
     st.error("がぞうが ないよ！")
 
@@ -195,7 +199,5 @@ if st.session_state.quiz_index == len(st.session_state.shuffled_data) - 1 and st
         random.shuffle(st.session_state.shuffled_data)
         st.session_state.quiz_index = 0
         st.session_state.status = "waiting"
-        st.session_state.last_played = ""
+        st.session_state.played_for_this_step = False
         st.rerun()
-
-           

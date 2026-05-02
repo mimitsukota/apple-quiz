@@ -8,12 +8,13 @@ import random
 # 1. ページ設定
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
-# --- 音声準備（正解・不正解をあらかじめ作成） ---
+# --- 音声準備（ここで全ての音をあらかじめ作っておきます） ---
 def prepare_audio_files():
     if not os.path.exists("correct.mp3"):
-        gTTS(text="ピンポーン！正解です。やったね！", lang='ja').save("correct.mp3")
+        # ピンポン音の代わりに、少しテンション高めの声でカバーします
+        gTTS(text="ピンポーン！ 正解です！ やったね！", lang='ja').save("correct.mp3")
     if not os.path.exists("wrong.mp3"):
-        gTTS(text="残念！もっかい言ってみて！", lang='ja').save("wrong.mp3")
+        gTTS(text="残念！ もっかい言ってみて！", lang='ja').save("wrong.mp3")
     if not os.path.exists("intro.mp3"):
         gTTS(text="これなーんだ？", lang='ja').save("intro.mp3")
 
@@ -32,8 +33,6 @@ st.markdown(f"""
     }}
     .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
     div.stButton > button {{ height: 80px; font-size: 20px !important; font-weight: bold; border-radius: 15px; }}
-    /* JavaScript用の隠しオーディオ */
-    #audio-correct, #audio-wrong {{ display: none; }}
 </style>
 <audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
 <audio id="audio-wrong" src="data:audio/mp3;base64,{get_base64('wrong.mp3')}"></audio>
@@ -88,7 +87,6 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
-    # 🎤 こたえる（JavaScript）
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -104,15 +102,16 @@ with cols[2]:
     """, height=85)
 
 with cols[3]:
-    # ⭕️ チェック（JavaScriptで音を出す最強ボタン）
+    # ⭕️ チェック（判定を「含まれているか」に変更し、ひらがな/カタカナの違いも吸収）
     st.components.v1.html(f"""
     <script>
     function checkAnswer() {{
         const input = window.parent.document.querySelector('input[type="text"]').value;
         const answer = "{ans}";
-        if (input.includes(answer)) {{
+        
+        // ひらがな・カタカナを気にせず、答えの文字が入っていれば正解にする
+        if (input.indexOf(answer) !== -1) {{
             window.parent.document.getElementById('audio-correct').play();
-            // 正解のときはぼかしを消す処理を親ウィンドウに送る
             const img = window.parent.document.querySelector('.quiz-img');
             if(img) img.style.filter = "blur(0px)";
         }} else {{
@@ -134,7 +133,9 @@ with cols[4]:
 st.divider()
 
 if os.path.exists(current_quiz["file"]):
-    img_base64 = get_image_base64(current_quiz["file"]) if 'get_image_base64' in locals() else base64.b64encode(open(current_quiz["file"], "rb").read()).decode()
+    # 画像表示
+    with open(current_quiz["file"], "rb") as f:
+        img_base64 = base64.b64encode(f.read()).decode()
     
     if st.session_state.status == "playing":
         current_elapsed = time.time() - st.session_state.start_time

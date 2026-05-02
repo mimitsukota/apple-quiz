@@ -5,19 +5,21 @@ import time
 import os
 
 # ページ設定
-st.set_page_config(page_title="最強ぼかしりんごクイズ", layout="centered")
+st.set_page_config(page_title="連想クイズ・コレクション", layout="centered")
 
 # --- 音声生成・取得関数 ---
-def get_audio_html(text, filename):
-    if not os.path.exists(filename):
-        tts = gTTS(text=text, lang='ja')
-        tts.save(filename)
+def get_audio_html(text, filename_prefix):
+    # ファイル名が重複しないよう、テキストのハッシュなどを利用するのが理想ですが
+    # 今回はシンプルに一時ファイルとして生成します
+    filepath = f"{filename_prefix}.mp3"
+    tts = gTTS(text=text, lang='ja')
+    tts.save(filepath)
     
-    with open(filename, "rb") as f:
+    with open(filepath, "rb") as f:
         audio_bytes = f.read()
     audio_base64 = base64.b64encode(audio_bytes).decode()
-    # 自動再生のためのHTML（隠しプレイヤー）
-    return f'<audio src="data:audio/mp3;base64,{audio_base64}" autoplay>'
+    # 自動再生（autoplay）を有効にしたHTML
+    return f'<audio src="data:audio/mp3;base64,{audio_base64}" autoplay style="display:none;">'
 
 # --- 画像をBase64に変換 ---
 def get_image_base64(path):
@@ -25,22 +27,48 @@ def get_image_base64(path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-st.title("🍎 超・難問クイズ")
-st.write("ボタンを押すと、超強力なぼかし画像が現れます。何かわかるかな？")
+# --- クイズデータのリスト ---
+# ご指定の項目をすべて追加しました
+quiz_data = [
+    {"answer": "りんご", "file": "wide_thumbnail_large.jpg"},
+    {"answer": "ばなな", "file": "banana.jpg"},
+    {"answer": "もも", "file": "momo.jpg"},
+    {"answer": "きうい", "file": "kiui.jpg"},
+    {"answer": "ぶどう", "file": "budou.jpg"},
+    {"answer": "いちご", "file": "ichigo.jpg"},
+    {"answer": "あざらし", "file": "azarashi.jpg"},
+    {"answer": "めろん", "file": "melon.jpg"},
+    {"answer": "ぱんだ", "file": "panda.jpg"},
+    {"answer": "れもん", "file": "lemon.jpg"},
+    {"answer": "すいか", "file": "suika.jpg"},
+    {"answer": "うさぎ", "file": "usagi.jpg"},
+    {"answer": "はりねずみ", "file": "harinezumi.jpg"},
+    {"answer": "しまえなが", "file": "shimaenaga.jpg"},
+]
 
-img_path = "wide_thumbnail_large.jpg"
+st.title("✨ なにかな？連想クイズ")
 
-if os.path.exists(img_path):
-    img_base64 = get_image_base64(img_path)
+# セッション状態（現在の問題番号）の管理
+if "quiz_index" not in st.session_state:
+    st.session_state.quiz_index = 0
+
+# 現在の問題を取得
+current_quiz = quiz_data[st.session_state.quiz_index]
+
+st.subheader(f"第 {st.session_state.quiz_index + 1} 問 / 全 {len(quiz_data)} 問")
+
+if os.path.exists(current_quiz["file"]):
+    img_base64 = get_image_base64(current_quiz["file"])
     
-    if st.button("クイズを始める！"):
-        # ① 問題音声「これなーんだ」を流す
-        st.components.v1.html(get_audio_html("これなーんだ？", "q.mp3"), height=0)
+    # 画面レイアウト用のコンテナ
+    container = st.container()
+    
+    if st.button("クイズをスタート！", key="start_btn"):
+        # ① 問題音声の再生
+        st.components.v1.html(get_audio_html("これなーんだ？", "q_sound"), height=0)
         
         # ② 10秒かけてボカシを消すアニメーション
         placeholder = st.empty()
-        
-        # === 【修正点】from { filter: blur(20px); } を (60px) に強化しました ===
         blur_css = f"""
         <style>
         @keyframes reveal {{
@@ -49,9 +77,10 @@ if os.path.exists(img_path):
         }}
         .blur-image {{
             width: 100%;
-            border-radius: 15px;
+            max-width: 600px;
+            border-radius: 20px;
             animation: reveal 10s linear forwards;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* 少し見栄えを良く */
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
         }}
         </style>
         <img src="data:image/jpeg;base64,{img_base64}" class="blur-image">
@@ -61,9 +90,21 @@ if os.path.exists(img_path):
         # ③ 10秒待機
         time.sleep(10)
         
-        # 正解音声「せいかいはりんごです」
-        st.components.v1.html(get_audio_html("せいかいは、りんごです", "a.mp3"), height=0)
+        # ④ 正解発表
+        ans_text = f"正解は、{current_quiz['answer']}です！"
+        st.components.v1.html(get_audio_html(ans_text, "a_sound"), height=0)
         st.balloons()
-        st.success("正解はりんごです！")
+        st.success(ans_text)
+        
+        # 次へ進むボタン
+        if st.session_state.quiz_index < len(quiz_data) - 1:
+            if st.button("次の問題へ 👉"):
+                st.session_state.quiz_index += 1
+                st.rerun()
+        else:
+            st.info("全問クリア！おめでとうございます！ 🎉")
+            if st.button("最初から遊ぶ"):
+                st.session_state.quiz_index = 0
+                st.rerun()
 else:
-    st.error(f"画像 '{img_path}' が見つかりません。GitHubに画像をアップロードしてください。")
+    st.error(f"画像ファイル '{current_quiz['file']}' が見つかりません。GitHubにアップロードしてください。")

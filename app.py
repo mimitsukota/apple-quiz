@@ -5,13 +5,12 @@ import time
 import os
 import random
 
-# 1. ページ設定：ワイドモード、タイトル設定
+# 1. ページ設定
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
-# --- 便利関数（音声・画像・JavaScript） ---
+# --- 便利関数 ---
 @st.cache_data
 def get_audio_base64(text):
-    """テキストを音声に変換してBase64で返す"""
     tts = gTTS(text=text, lang='ja')
     tts.save("temp.mp3")
     with open("temp.mp3", "rb") as f:
@@ -19,19 +18,16 @@ def get_audio_base64(text):
     return base64.b64encode(audio_bytes).decode()
 
 def play_audio(text):
-    """音声を自動再生するHTMLを生成"""
     audio_base64 = get_audio_base64(text)
     audio_html = f'<audio src="data:audio/mp3;base64,{audio_base64}" autoplay style="display:none;">'
     st.components.v1.html(audio_html, height=0)
 
 def get_image_base64(path):
-    """画像をBase64に変換"""
     with open(path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 def speech_recognition_js():
-    """音声認識用JavaScriptボタン"""
     js_code = """
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -47,7 +43,7 @@ def speech_recognition_js():
     const startSpeech = () => { recognition.start(); };
     </script>
     <div style="display: flex; justify-content: center;">
-        <button onclick="startSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 15px; border-radius: 15px; width: 80%; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <button onclick="startSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 15px; border-radius: 15px; width: 80%; font-size: 20px; font-weight: bold; cursor: pointer;">
             🎤 おして、こたえを おしえてね！
         </button>
     </div>
@@ -78,21 +74,23 @@ if "shuffled_data" not in st.session_state:
     random.shuffle(data)
     st.session_state.shuffled_data = data
     st.session_state.quiz_index = 0
-    st.session_state.status = "waiting" # waiting, playing, stop
+    st.session_state.status = "waiting"
+    st.session_state.start_time = 0
 
 # --- 画面表示 ---
-# 大きなタイトル
 st.markdown("<h1 style='text-align: center; font-size: 70px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
 
-# 3つのメインボタン
 btn_col1, btn_col2, btn_col3 = st.columns(3)
 with btn_col1:
     if st.button("▶ スタート", use_container_width=True):
         st.session_state.status = "playing"
+        st.session_state.start_time = time.time()
         st.rerun()
 with btn_col2:
     if st.button("💡 わかった！", use_container_width=True):
         if st.session_state.status == "playing":
+            # 経過時間を記録して停止状態へ
+            st.session_state.elapsed = time.time() - st.session_state.start_time
             st.session_state.status = "stop"
             st.rerun()
 with btn_col3:
@@ -100,11 +98,11 @@ with btn_col3:
         if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
             st.session_state.quiz_index += 1
             st.session_state.status = "playing"
+            st.session_state.start_time = time.time()
             st.rerun()
 
 st.divider()
 
-# 現在の問題
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 col_main = st.columns([1, 8, 1])[1]
 
@@ -114,7 +112,6 @@ with col_main:
     if os.path.exists(current_quiz["file"]):
         img_base64 = get_image_base64(current_quiz["file"])
         
-        # 進行中
         if st.session_state.status == "playing":
             play_audio("これなーんだ？")
             placeholder = st.empty()
@@ -126,37 +123,45 @@ with col_main:
             <img src="data:image/jpeg;base64,{img_base64}" class="blur-image">
             """
             placeholder.markdown(blur_css, unsafe_allow_html=True)
-            time.sleep(10)
-            st.session_state.status = "stop"
-            st.rerun()
+            
+            # 10秒経つまでループ（途中でボタンが押されたら抜けるため）
+            for i in range(100):
+                time.sleep(0.1)
+                # 10秒経過したら自動停止
+                if time.time() - st.session_state.start_time >= 10:
+                    st.session_state.elapsed = 10
+                    st.session_state.status = "stop"
+                    st.rerun()
 
-        # 回答モード
         elif st.session_state.status == "stop":
-            # 鮮明な画像
-            st.markdown(f'<img src="data:image/jpeg;base64,{img_base64}" style="width:100%; height:500px; object-fit:cover; border-radius:30px; border: 5px solid #FF4B4B;">', unsafe_allow_html=True)
+            # 現在の「ぼかし具合」を計算（10秒で50pxから0pxになる計算）
+            # わかった！を押した瞬間のぼかしを再現する
+            current_blur = max(0, 50 - (st.session_state.elapsed * 5))
+            
+            st.markdown(f"""
+                <img src="data:image/jpeg;base64,{img_base64}" 
+                style="width:100%; height:500px; object-fit:cover; border-radius:30px; border: 5px solid #FF4B4B; filter: blur({current_blur}px);">
+                """, unsafe_allow_html=True)
             
             st.divider()
             st.write("### 🎤 こたえを いってね！")
-            
-            # 音声入力の結果が入る隠しボックス
             speech_val = st.text_input("speech_input", label_visibility="collapsed", key="speech_input_widget")
             speech_recognition_js()
 
             if speech_val:
                 st.write(f"きみの こたえ: **{speech_val}**")
-                # 正解判定
                 if speech_val in current_quiz["answer"]:
+                    # 正解の時はぼかしを消す
+                    st.markdown(f'<style>.stApp img {{ filter: blur(0px) !important; }}</style>', unsafe_allow_html=True)
                     st.success("## ✨ せいかい！！ ✨")
                     play_audio("ピンポーン！ 正解です。やったね！")
                 else:
                     st.warning("## おしい！")
                     play_audio("残念！")
     else:
-        st.error(f"画像 '{current_quiz['file']}' が見つかりません。")
+        st.error("がぞうが ないよ！")
 
-# 最後まで行った時の処理
 if st.session_state.quiz_index == len(st.session_state.shuffled_data) - 1 and st.session_state.status == "stop":
-    st.balloons()
     if st.button("最初からあそぶ", use_container_width=True):
         random.shuffle(st.session_state.shuffled_data)
         st.session_state.quiz_index = 0

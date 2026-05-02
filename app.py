@@ -30,36 +30,6 @@ def get_image_base64(path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-# --- 改良版音声認識JavaScript ---
-def speech_recognition_js():
-    # hidden_speech_btnをクリックするとマイクが起動し、結果を隠しinputに書き込む
-    js_code = """
-    <script>
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'ja-JP';
-    recognition.onresult = (event) => {
-        const speechResult = event.results[0][0].transcript;
-        // Streamlitのテキストエリアを探して値をセット
-        const inputs = window.parent.document.querySelectorAll('input');
-        for (let input of inputs) {
-            if (input.getAttribute('aria-label') === 'speech_hidden_input') {
-                input.value = speechResult;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                break;
-            }
-        }
-    };
-    const startSpeech = () => { recognition.start(); };
-    window.parent.document.addEventListener('click', (e) => {
-        if (e.target.id === 'speech_trigger_js') {
-            startSpeech();
-        }
-    });
-    </script>
-    <button id="speech_trigger_js" style="display:none;"></button>
-    """
-    st.components.v1.html(js_code, height=0)
-
 # --- クイズデータ ---
 original_quiz_data = [
     {"answer": "りんご", "file": "wide_thumbnail_large.jpg"},
@@ -99,7 +69,6 @@ st.markdown("""
         border: 5px solid #FF4B4B;
         border-radius: 30px;
         overflow: hidden;
-        position: relative;
     }
     .quiz-img {
         width: 100% !important;
@@ -108,18 +77,17 @@ st.markdown("""
     }
     div.stButton > button {
         height: 80px;
-        font-size: 18px !important;
+        font-size: 20px !important;
         font-weight: bold;
         border-radius: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-speech_recognition_js()
-
 # --- 画面表示 ---
 st.markdown("<h1 style='text-align: center; font-size: 60px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
 
+# 5つのメインボタン
 cols = st.columns(5)
 
 with cols[0]:
@@ -136,12 +104,29 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
-    # JS側の隠しボタンをクリックさせる仕組み
-    if st.button("🎤こたえる", use_container_width=True):
-        st.components.v1.html("<script>window.parent.document.getElementById('speech_trigger_js').click();</script>", height=0)
+    # 🎤 こたえるボタン（HTML/JSで直接マイクを動かす方式に変更）
+    speech_js = """
+    <script>
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'ja-JP';
+    recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        const inputs = window.parent.document.querySelectorAll('input');
+        for (let i = 0; i < inputs.length; i++) {
+            // Streamlitのテキスト入力を見つけて値を流し込む
+            inputs[i].value = text;
+            inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+    </script>
+    <button onclick="recognition.start()" style="width:100%; height:80px; background-color:#f0f2f6; border:1px solid #d3d3d3; border-radius:15px; font-size:20px; font-weight:bold; cursor:pointer;">
+        🎤こたえる
+    </button>
+    """
+    st.components.v1.html(speech_js, height=85)
 
 with cols[3]:
-    # チェックボタン
+    # ⭕️ チェックボタン
     btn_check = st.button("⭕️チェック", use_container_width=True)
 
 with cols[4]:
@@ -186,16 +171,15 @@ if os.path.exists(current_quiz["file"]):
     # 回答確認エリア
     if st.session_state.status == "stop":
         st.write(f"### 第 {st.session_state.quiz_index + 1} 問")
-        
-        # 音声入力の結果を受け取るテキストボックス
-        speech_val = st.text_input("speech_hidden_input", label_visibility="collapsed", key="speech_input_widget")
+        # 音声入力の結果が入る欄
+        speech_val = st.text_input("こたえを入力", key="speech_input", placeholder="マイクでおしゃべりしてね")
         
         if speech_val:
             st.write(f"きみの こたえ: **{speech_val}**")
             
-            # チェックボタンが押されたら判定
             if btn_check:
-                if any(ans in speech_val for ans in [current_quiz["answer"]]):
+                # 判定
+                if current_quiz["answer"] in speech_val:
                     st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
                     st.success("## ✨ せいかい！！ ✨")
                     play_audio("ピンポーン！ 正解です。やったね！")

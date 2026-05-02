@@ -10,7 +10,6 @@ st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
 # --- 便利関数 ---
 def get_audio_base64(text):
-    """テキストを音声に変換してBase64で返す"""
     tts = gTTS(text=text, lang='ja')
     tts.save("temp_result.mp3")
     with open("temp_result.mp3", "rb") as f:
@@ -18,23 +17,20 @@ def get_audio_base64(text):
     return base64.b64encode(audio_bytes).decode()
 
 def play_audio(text):
-    """音声を自動再生するHTMLを生成（コンポーネント化して確実に実行）"""
     audio_base64 = get_audio_base64(text)
     audio_html = f'''
-        <audio autoplay="true">
+        <audio autoplay name="media">
             <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
         </audio>
     '''
     st.components.v1.html(audio_html, height=0)
 
 def get_image_base64(path):
-    """画像をBase64に変換"""
     with open(path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 def speech_recognition_js():
-    """音声認識用JavaScriptボタン"""
     js_code = """
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -49,13 +45,11 @@ def speech_recognition_js():
     };
     const startSpeech = () => { recognition.start(); };
     </script>
-    <div style="display: flex; justify-content: center;">
-        <button onclick="startSpeech()" style="background-color: #FF4B4B; color: white; border: none; padding: 15px; border-radius: 15px; width: 80%; font-size: 20px; font-weight: bold; cursor: pointer; -webkit-appearance: none;">
-            🎤 おして、こたえを おしえてね！
-        </button>
+    <div style="display: none;">
+        <button id="hidden_speech_btn" onclick="startSpeech()"></button>
     </div>
     """
-    st.components.v1.html(js_code, height=100)
+    st.components.v1.html(js_code, height=0)
 
 # --- クイズデータ ---
 original_quiz_data = [
@@ -84,7 +78,6 @@ if "shuffled_data" not in st.session_state:
     st.session_state.status = "waiting"
     st.session_state.start_time = 0
     st.session_state.elapsed = 0
-    st.session_state.played_for_this_step = False
 
 # --- CSS設定 ---
 st.markdown("""
@@ -104,38 +97,58 @@ st.markdown("""
         height: 100% !important;
         object-fit: cover !important;
     }
-    div.stButton > button { height: 60px; font-size: 20px !important; font-weight: bold; }
+    /* ボタンの共通スタイル */
+    div.stButton > button {
+        height: 80px;
+        font-size: 18px !important;
+        font-weight: bold;
+        border-radius: 15px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 画面表示 ---
-st.markdown("<h1 style='text-align: center; font-size: 70px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
+# 音声認識のJSを埋め込み
+speech_recognition_js()
 
-btn_col1, btn_col2, btn_col3 = st.columns(3)
-with btn_col1:
-    if st.button("▶ スタート", use_container_width=True):
+# --- 画面表示 ---
+st.markdown("<h1 style='text-align: center; font-size: 60px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
+
+# 5つのボタンを横一列に配置
+cols = st.columns(5)
+
+with cols[0]:
+    if st.button("▶️スタート", use_container_width=True):
         st.session_state.status = "playing"
         st.session_state.start_time = time.time()
-        st.session_state.played_for_this_step = False
         st.rerun()
-with btn_col2:
-    if st.button("💡 わかった！", use_container_width=True):
+
+with cols[1]:
+    if st.button("💡わかった", use_container_width=True):
         if st.session_state.status == "playing":
             st.session_state.elapsed = time.time() - st.session_state.start_time
             st.session_state.status = "stop"
-            st.session_state.played_for_this_step = False
             st.rerun()
-with btn_col3:
-    if st.button("👉 つぎへ", use_container_width=True):
+
+with cols[2]:
+    # 音声入力を起動するボタン
+    if st.button("🎤こたえる", use_container_width=True):
+        # JSのボタンを擬似的にクリックさせる
+        st.components.v1.html("<script>window.parent.document.getElementById('hidden_speech_btn').click();</script>", height=0)
+
+with cols[3]:
+    check_click = st.button("⭕️チェック", use_container_width=True)
+
+with cols[4]:
+    if st.button("👉つぎへ", use_container_width=True):
         if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
             st.session_state.quiz_index += 1
             st.session_state.status = "playing"
             st.session_state.start_time = time.time()
-            st.session_state.played_for_this_step = False
             st.rerun()
 
 st.divider()
 
+# --- クイズ本編 ---
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 
 if os.path.exists(current_quiz["file"]):
@@ -160,44 +173,36 @@ if os.path.exists(current_quiz["file"]):
         </div>
         """, unsafe_allow_html=True)
     
-    # 出題時の音声
-    if st.session_state.status == "playing" and not st.session_state.played_for_this_step:
-        play_audio("これなーんだ？")
-        st.session_state.played_for_this_step = True
-
-    # 回答セクション
-    if st.session_state.status == "stop":
-        st.divider()
-        st.write(f"### 第 {st.session_state.quiz_index + 1} 問： 🎤 こたえを いってね！")
-        
-        # 音声入力ボックス
-        speech_val = st.text_input("speech_input", label_visibility="collapsed", key="speech_input_widget")
-        speech_recognition_js()
-
-        if speech_val:
-            st.write(f"きみの こたえ: **{speech_val}**")
-            # 正解判定
-            if speech_val in current_quiz["answer"]:
-                st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
-                st.success("## ✨ せいかい！！ ✨")
-                # 判定結果が出た瞬間に再生
-                play_audio("ピンポーン！ 正解です。やったね！")
-            else:
-                st.warning("## おしい！")
-                play_audio("残念！")
-                
-    # 画面更新を維持するためのスリープ
     if st.session_state.status == "playing":
+        play_audio("これなーんだ？")
         time.sleep(0.1)
         st.rerun()
+
+    # 回答確認の表示
+    if st.session_state.status == "stop":
+        st.write(f"### 第 {st.session_state.quiz_index + 1} 問")
+        # 音声入力された文字を表示する欄
+        speech_val = st.text_input("speech_input", label_visibility="collapsed", key="speech_input_widget", placeholder="ここに おしゃべりした 文字が でるよ")
+        
+        if speech_val:
+            st.write(f"きみの こたえ: **{speech_val}**")
+            
+            # チェックボタンが押された時の判定
+            if check_click:
+                if speech_val in current_quiz["answer"]:
+                    st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
+                    st.success("## ✨ せいかい！！ ✨")
+                    play_audio("ピンポーン！ 正解です。やったね！")
+                else:
+                    st.warning("## おしい！ もっかい いってみて！")
+                    play_audio("残念！")
 else:
     st.error("がぞうが ないよ！")
 
-# 最初からあそぶ
+# 全問終了時
 if st.session_state.quiz_index == len(st.session_state.shuffled_data) - 1 and st.session_state.status == "stop":
     if st.button("最初からあそぶ", use_container_width=True):
         random.shuffle(st.session_state.shuffled_data)
         st.session_state.quiz_index = 0
         st.session_state.status = "waiting"
-        st.session_state.played_for_this_step = False
         st.rerun()

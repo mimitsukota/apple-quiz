@@ -10,6 +10,7 @@ st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
 # --- 便利関数 ---
 def get_audio_base64(text):
+    """テキストを音声に変換してBase64で返す"""
     tts = gTTS(text=text, lang='ja')
     tts.save("temp_result.mp3")
     with open("temp_result.mp3", "rb") as f:
@@ -17,15 +18,16 @@ def get_audio_base64(text):
     return base64.b64encode(audio_bytes).decode()
 
 def play_audio(text):
+    """【改良版】音声を即座に再生するHTMLを生成"""
     audio_base64 = get_audio_base64(text)
     audio_html = f'''
-        <audio autoplay name="media">
-            <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
-        </audio>
+        <iframe src="data:audio/mp3;base64,{audio_base64}" allow="autoplay" style="display:none"></iframe>
+        <audio autoplay><source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3"></audio>
     '''
     st.components.v1.html(audio_html, height=0)
 
 def get_image_base64(path):
+    """画像をBase64に変換"""
     with open(path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
@@ -104,7 +106,7 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
-    # 🎤 こたえるボタン（HTML/JSで直接マイクを動かす方式に変更）
+    # 🎤 こたえるボタン（JSでマイク起動）
     speech_js = """
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -113,7 +115,6 @@ with cols[2]:
         const text = event.results[0][0].transcript;
         const inputs = window.parent.document.querySelectorAll('input');
         for (let i = 0; i < inputs.length; i++) {
-            // Streamlitのテキスト入力を見つけて値を流し込む
             inputs[i].value = text;
             inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
         }
@@ -126,7 +127,7 @@ with cols[2]:
     st.components.v1.html(speech_js, height=85)
 
 with cols[3]:
-    # ⭕️ チェックボタン
+    # ⭕️ チェックボタン（このボタン自体をセッション状態で管理）
     btn_check = st.button("⭕️チェック", use_container_width=True)
 
 with cols[4]:
@@ -145,6 +146,7 @@ current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 if os.path.exists(current_quiz["file"]):
     img_base64 = get_image_base64(current_quiz["file"])
     
+    # ぼかし計算
     if st.session_state.status == "playing":
         current_elapsed = time.time() - st.session_state.start_time
         if current_elapsed >= 10:
@@ -163,6 +165,7 @@ if os.path.exists(current_quiz["file"]):
         </div>
         """, unsafe_allow_html=True)
     
+    # 出題音声
     if st.session_state.status == "playing":
         play_audio("これなーんだ？")
         time.sleep(0.1)
@@ -171,21 +174,22 @@ if os.path.exists(current_quiz["file"]):
     # 回答確認エリア
     if st.session_state.status == "stop":
         st.write(f"### 第 {st.session_state.quiz_index + 1} 問")
-        # 音声入力の結果が入る欄
         speech_val = st.text_input("こたえを入力", key="speech_input", placeholder="マイクでおしゃべりしてね")
         
-        if speech_val:
-            st.write(f"きみの こたえ: **{speech_val}**")
-            
-            if btn_check:
-                # 判定
-                if current_quiz["answer"] in speech_val:
-                    st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
-                    st.success("## ✨ せいかい！！ ✨")
-                    play_audio("ピンポーン！ 正解です。やったね！")
-                else:
-                    st.warning("## おしい！ もっかい いってみて！")
-                    play_audio("残念！")
+        # チェックボタンが押された時の動作をここに集約
+        if btn_check and speech_val:
+            if current_quiz["answer"] in speech_val:
+                st.markdown('<style>.quiz-img { filter: blur(0px) !important; transition: filter 0.5s; }</style>', unsafe_allow_html=True)
+                st.success("## ✨ せいかい！！ ✨")
+                # 正解の音声を再生
+                play_audio("ピンポーン！ 正解です。やったね！")
+            else:
+                st.warning("## おしい！ もっかい いってみて！")
+                # 残念の音声を再生
+                play_audio("残念！")
+        elif btn_check and not speech_val:
+            st.info("🎤「こたえる」ボタンをおして、おしゃべりしてからチェックしてね！")
+
 else:
     st.error("がぞうが ないよ！")
 

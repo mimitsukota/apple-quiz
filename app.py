@@ -5,7 +5,7 @@ import time
 import os
 
 # ページ設定
-st.set_page_config(page_title="りんごクイズ", layout="centered")
+st.set_page_config(page_title="最強ぼかしりんごクイズ", layout="centered")
 
 # --- 音声生成・取得関数 ---
 def get_audio_html(text, filename):
@@ -25,7 +25,8 @@ def get_image_base64(path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-st.title("🍎 連想クイズ")
+st.title("🍎 超・難問クイズ")
+st.write("ボタンを押すと、超強力なぼかし画像が現れます。何かわかるかな？")
 
 img_path = "wide_thumbnail_large.jpg"
 
@@ -38,16 +39,19 @@ if os.path.exists(img_path):
         
         # ② 10秒かけてボカシを消すアニメーション
         placeholder = st.empty()
+        
+        # === 【修正点】from { filter: blur(20px); } を (60px) に強化しました ===
         blur_css = f"""
         <style>
         @keyframes reveal {{
-            from {{ filter: blur(20px); }}
+            from {{ filter: blur(60px); }}
             to {{ filter: blur(0px); }}
         }}
         .blur-image {{
             width: 100%;
             border-radius: 15px;
             animation: reveal 10s linear forwards;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* 少し見栄えを良く */
         }}
         </style>
         <img src="data:image/jpeg;base64,{img_base64}" class="blur-image">

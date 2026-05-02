@@ -3,9 +3,10 @@ from gtts import gTTS
 import base64
 import time
 import os
+import random
 
-# ページ設定：ワイドモードにして、タイトルを変更
-st.set_page_config(page_title="これ なーんだ", layout="wide")
+# ページ設定
+st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
 # --- 音声生成・キャッシュ関数 ---
 @st.cache_data
@@ -28,7 +29,7 @@ def get_image_base64(path):
     return base64.b64encode(data).decode()
 
 # --- クイズデータのリスト ---
-quiz_data = [
+original_quiz_data = [
     {"answer": "りんご", "file": "wide_thumbnail_large.jpg"},
     {"answer": "ばなな", "file": "banana.jpg"},
     {"answer": "もも", "file": "momo.jpg"},
@@ -45,32 +46,38 @@ quiz_data = [
     {"answer": "しまえなが", "file": "shimaenaga.jpg"},
 ]
 
-# タイトル（表題）の変更
-st.markdown("<h1 style='text-align: center;'>これ なーんだ</h1>", unsafe_allow_html=True)
+# タイトル（表題）の変更： 「？」を追加
+st.markdown("<h1 style='text-align: center;'>これ なーんだ？</h1>", unsafe_allow_html=True)
+
+# セッション状態の初期化
+if "shuffled_data" not in st.session_state:
+    # 最初に一度だけリストをシャッフル（ランダム化）する
+    data = original_quiz_data.copy()
+    random.shuffle(data)
+    st.session_state.shuffled_data = data
 
 if "quiz_index" not in st.session_state:
     st.session_state.quiz_index = 0
 if "playing" not in st.session_state:
     st.session_state.playing = False
 
-current_quiz = quiz_data[st.session_state.quiz_index]
+# 現在のランダム化された問題を取得
+current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 
-# 中央寄せのためのカラム作成
+# 中央寄せのカラム
 col1, col2, col3 = st.columns([1, 8, 1])
 
 with col2:
-    st.write(f"### 第 {st.session_state.quiz_index + 1} 問 / 全 {len(quiz_data)} 問")
+    st.write(f"### 第 {st.session_state.quiz_index + 1} 問 / 全 {len(original_quiz_data)} 問")
 
     if os.path.exists(current_quiz["file"]):
         img_base64 = get_image_base64(current_quiz["file"])
         
-        # スタートボタン
         if st.button("クイズをスタート！", use_container_width=True):
             st.session_state.playing = True
             play_audio("これなーんだ？")
             
             placeholder = st.empty()
-            # 画像を大きく(width: 100%)、ぼかしを強く(60px)
             blur_css = f"""
             <style>
             @keyframes reveal {{ from {{ filter: blur(60px); }} to {{ filter: blur(0px); }} }}
@@ -92,17 +99,21 @@ with col2:
             st.balloons()
             st.success(f"## {ans_text}")
 
-        # 次へボタン
         if st.session_state.playing:
-            if st.session_state.quiz_index < len(quiz_data) - 1:
+            if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
                 if st.button("次の問題へ 👉", use_container_width=True):
                     st.session_state.quiz_index += 1
                     st.session_state.playing = False
                     st.rerun()
             else:
-                if st.button("最初から遊ぶ", use_container_width=True):
+                st.info("全問クリアしました！")
+                if st.button("新しい順番で最初から遊ぶ", use_container_width=True):
+                    # 再度シャッフルしてリセット
+                    data = original_quiz_data.copy()
+                    random.shuffle(data)
+                    st.session_state.shuffled_data = data
                     st.session_state.quiz_index = 0
                     st.session_state.playing = False
                     st.rerun()
     else:
-        st.error(f"画像 '{current_quiz['file']}' が見つかりません。")
+        st.error(f"画像 '{current_quiz['file']}' が見つかりません。GitHubを確認してください。")

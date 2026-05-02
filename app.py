@@ -34,7 +34,7 @@ quiz_data = [
     {"answer": "ばなな", "file": "banana.jpg"},
     {"answer": "もも", "file": "momo.jpg"},
     {"answer": "きうい", "file": "kiui.jpg"},
-    {"answer": "ぶどう", "file": "budo.jpg"},
+    {"answer": "ぶどう", "file": "budou.jpg"},
     {"answer": "いちご", "file": "ichigo.jpg"},
     {"answer": "あざらし", "file": "azarashi.jpg"},
     {"answer": "めろん", "file": "melon.jpg"},

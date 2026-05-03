@@ -25,11 +25,11 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ（全25問になりました！） ---
+# --- クイズデータ（全25問） ---
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
     {"answer": "ばす", "file": "bus.jpg"},
-    {"answer": "ちかてつ", "file": "chikatetsu.jpg"},
+    {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
     {"answer": "でんしゃ", "file": "densya.jpg"},
     {"answer": "へりこぷたー", "file": "heri.jpg"},
     {"answer": "かぴばら", "file": "kapibara.jpg"},
@@ -99,6 +99,7 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
+    # 🎤 こたえる
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -114,6 +115,7 @@ with cols[2]:
     """, height=85)
 
 with cols[3]:
+    # ⭕️ チェック（判定ロジックを強化）
     st.components.v1.html(f"""
     <script>
     function toHira(str) {{
@@ -125,7 +127,12 @@ with cols[3]:
         const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
         const inputHira = toHira(inputRaw);
         const answer = "{ans}";
-        if (inputHira.includes(answer) || inputRaw.includes(answer)) {{
+        
+        // スペースを消したり、のばす棒を統一したりして判定しやすくする
+        const cleanInput = inputHira.trim().replace(/ /g, "").replace(/　/g, "");
+        const cleanAnswer = answer.trim();
+
+        if (cleanInput.includes(cleanAnswer) || cleanAnswer.includes(cleanInput) || inputRaw.includes(answer)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
             if(img) img.style.filter = "blur(0px)";
@@ -174,4 +181,4 @@ if os.path.exists(current_quiz["file"]):
         st.write(f"### だい {st.session_state.quiz_index + 1} もん")
         st.text_input("こたえを にゅうりょく", key="speech_input", placeholder="マイクで おしゃべりしてね")
 else:
-    st.error(f"写真 '{current_quiz['file']}' が見つかりません。フォルダの中にちゃんとあるか確認してね！")
+    st.error(f"写真 '{current_quiz['file']}' が見つかりません。")

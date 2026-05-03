@@ -25,18 +25,18 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ（BBAさんの新しい写真リストに合わせました！） ---
+# --- クイズデータ（BBAさんのリストに100%合わせました！） ---
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
+    {"answer": "ばす", "file": "bus.jpg"},
+    {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
+    {"answer": "でんしゃ", "file": "densya.jpg"},
     {"answer": "へりこぷたー", "file": "heri.jpg"},
     {"answer": "かぴばら", "file": "kapibara.jpg"},
+    {"answer": "きりん", "file": "kirin.jpg"},
+    {"answer": "らま", "file": "rama.jpg"},
     {"answer": "れっさーぱんだ", "file": "ressapanda.jpg"},
-    {"answer": "しんかんせん", "file": "sinkansen.jpg"},
-    {"answer": "しょうぼうしゃ", "file": "shoubousha.jpg"},
-    {"answer": "きゅうきゅうしゃ", "file": "kyuukyuusha.jpg"},
-    {"answer": "ぱとかー", "file": "pato-ka-.jpg"},
-    {"answer": "ちかてつ", "file": "tikatetsu.jpg"},
-    {"answer": "ものれーる", "file": "monore-ru.jpg"},
+    {"answer": "ろけっと", "file": "roketto.jpg"},
 ]
 
 if "shuffled_data" not in st.session_state:
@@ -114,7 +114,7 @@ with cols[3]:
         const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
         const inputHira = toHira(inputRaw);
         const answer = "{ans}";
-        if (inputHira.includes(answer) || inputRaw.includes(answer)) {{
+        if (inputHira.includes(answer) || inputHira.includes(answer.replace('ー',''))) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
             if(img) img.style.filter = "blur(0px)";
@@ -139,7 +139,6 @@ with cols[4]:
 
 st.divider()
 
-# 画像表示部分
 if os.path.exists(current_quiz["file"]):
     img_b64 = get_base64(current_quiz["file"])
     
@@ -164,4 +163,4 @@ if os.path.exists(current_quiz["file"]):
         st.write(f"### だい {st.session_state.quiz_index + 1} もん")
         st.text_input("こたえを にゅうりょく", key="speech_input", placeholder="マイクで おしゃべりしてね")
 else:
-    st.error(f"画像ファイル '{current_quiz['file']}' が見つかりません。同じフォルダに置いてあるか確認してね！")
+    st.error(f"画像 '{current_quiz['file']}' が フォルダの中に ないみたい。なまえを 確認してね！")

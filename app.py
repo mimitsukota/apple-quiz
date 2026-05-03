@@ -70,7 +70,7 @@ st.markdown(f"""
     .image-container {{
         width: 100%; max-width: 500px; height: 350px; margin: 10px auto;
         border: 8px solid #FF4B4B; border-radius: 20px; overflow: hidden;
-        cursor: pointer; /* 指マークにする */
+        cursor: pointer;
     }}
     .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
     div.stButton > button {{
@@ -79,6 +79,9 @@ st.markdown(f"""
         border-radius: 15px !important; margin-bottom: 5px !important;
     }}
     div.stButton > button[kind="primary"] {{ background-color: #FF4B4B; color: white; }}
+    
+    /* 隠しボタンを完全に見えなくする */
+    .st-emotion-cache-zt5igj {{ display: none; }} 
 </style>
 <audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
 <audio id="audio-wrong" src="data:audio/mp3;base64,{get_base64('wrong.mp3')}"></audio>
@@ -96,12 +99,11 @@ if st.button("▶️ はじめる！", type="primary", use_container_width=True)
     st.session_state.start_time = time.time()
     st.rerun()
 
-# --- 3. 画像（タップで止まる仕組み付き） ---
+# --- 3. 画像表示エリア ---
 if os.path.exists(current_quiz["file"]):
     with open(current_quiz["file"], "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode()
     
-    # ぼかし計算
     if st.session_state.status == "playing":
         current_elapsed = time.time() - st.session_state.start_time
         if current_elapsed >= 10:
@@ -112,28 +114,28 @@ if os.path.exists(current_quiz["file"]):
     else:
         calc_blur = 50
 
-    # 画像表示。クリックしたら透明なボタンを押したことにするJavaScript
+    # 画像を叩くと「stop_btn」という名前のボタンを探してクリックさせる命令
     st.markdown(f"""
-        <div class="image-container" onclick="document.getElementById('stop_button').click()">
+        <div class="image-container" onclick="Array.from(window.parent.document.querySelectorAll('button')).find(el => el.innerText.includes('stop_btn')).click();">
             <img src="data:image/jpeg;base64,{img_base64}" class="quiz-img" style="filter: blur({calc_blur}px);">
         </div>
     """, unsafe_allow_html=True)
     
-    # 透明な「停止用」隠しボタン
-    if st.button("隠しストップ", key="stop_button", help=""):
+    # 画面には見えないけど、画像をクリックするとこれが押される
+    if st.button("stop_btn", key="stop_hidden_button"):
         if st.session_state.status == "playing":
             st.session_state.elapsed = time.time() - st.session_state.start_time
             st.session_state.status = "stop"
             st.rerun()
 
-    # 音楽再生
     if st.session_state.status == "playing":
         st.components.v1.html(f'<audio autoplay><source src="data:audio/mp3;base64,{get_base64("intro.mp3")}" type="audio/mp3"></audio>', height=0)
         time.sleep(0.1); st.rerun()
 
-# --- 4 & 5. こたえる（音声） & 入力枠 ---
+# --- 4. 答え合わせエリア ---
 if st.session_state.status == "stop":
-    st.markdown("<p style='text-align:center; font-weight:bold;'>わかったかな？</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-weight:bold; font-size:20px;'>わかったかな？</p>", unsafe_allow_html=True)
+    
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -148,9 +150,8 @@ if st.session_state.status == "stop":
     <button onclick="recognition.start()" style="width:100%; height:70px; background-color:#4CAF50; color:white; border:none; border-radius:15px; font-size:24px; font-weight:bold; cursor:pointer;">🎤 おしゃべりして こたえる</button>
     """, height=80)
 
-    st.text_input("ここに こたえが でるよ", key="speech_input")
+    st.text_input("こたえ", key="speech_input", label_visibility="collapsed")
 
-    # --- 6. チェックボタン ---
     st.components.v1.html(f"""
     <script>
     function toHira(str) {{
@@ -175,7 +176,7 @@ if st.session_state.status == "stop":
     <button onclick="checkAnswer()" style="width:100%; height:70px; background-color:#FF9800; color:white; border:none; border-radius:15px; font-size:24px; font-weight:bold; cursor:pointer;">⭕ せいかいチェック！</button>
     """, height=80)
 
-# --- 7. つぎへボタン ---
+# --- 5. つぎへ ---
 st.write("") 
 if st.button("👉 つぎの問題へ", use_container_width=True):
     if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
@@ -186,6 +187,3 @@ if st.button("👉 つぎの問題へ", use_container_width=True):
     else:
         st.balloons()
         st.success("ぜんぶ おわったよ！ すごいね！")
-
-# 画面の下の方に「隠しストップ」ボタンが見えないように調整
-st.markdown("<style>#stop_button { visibility: hidden; position: absolute; }</style>", unsafe_allow_html=True)

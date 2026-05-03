@@ -29,7 +29,7 @@ prepare_audio_files()
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
     {"answer": "ばす", "file": "bus.jpg"},
-    {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
+    {"answer": "ちかてつ", "file": "chikatetsu.jpg"},
     {"answer": "でんしゃ", "file": "densya.jpg"},
     {"answer": "へりこぷたー", "file": "heri.jpg"},
     {"answer": "かぴばら", "file": "kapibara.jpg"},

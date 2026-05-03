@@ -23,22 +23,18 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ（正解は「ひらがな」で統一） ---
+# --- 新しいクイズデータ（BBAさんのリスト！） ---
 original_quiz_data = [
-    {"answer": "りんご", "file": "wide_thumbnail_large.jpg"},
-    {"answer": "ばなな", "file": "banana.jpg"},
-    {"answer": "もも", "file": "momo.jpg"},
-    {"answer": "きうい", "file": "kiwi.jpg"},
-    {"answer": "ぶどう", "file": "budo.jpg"},
-    {"answer": "いちご", "file": "ichigo.jpg"},
-    {"answer": "あざらし", "file": "azarashi.jpg"},
-    {"answer": "めろん", "file": "melon.jpg"},
-    {"answer": "ぱんだ", "file": "panda.jpg"},
-    {"answer": "れもん", "file": "lemon.jpg"},
-    {"answer": "すいか", "file": "suika.jpg"},
-    {"answer": "うさぎ", "file": "usagi.jpg"},
-    {"answer": "はりねずみ", "file": "harinezumi.jpg"},
-    {"answer": "しまえなが", "file": "shimaenaga.jpg"},
+    {"answer": "ひこうき", "file": "hikouki.jpg"},
+    {"answer": "ばす", "file": "bus.jpg"},
+    {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
+    {"answer": "でんしゃ", "file": "densya.jpg"},
+    {"answer": "へりこぷたー", "file": "heri.jpg"},
+    {"answer": "かぴばら", "file": "kapibara.jpg"},
+    {"answer": "きりん", "file": "kirin.jpg"},
+    {"answer": "らま", "file": "rama.jpg"},
+    {"answer": "れっさーぱんだ", "file": "ressapanda.jpg"},
+    {"answer": "ろけっと", "file": "roketto.jpg"},
 ]
 
 if "shuffled_data" not in st.session_state:
@@ -86,7 +82,6 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
-    # 🎤 こたえる
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -102,7 +97,6 @@ with cols[2]:
     """, height=85)
 
 with cols[3]:
-    # ⭕️ チェック（カタカナをひらがなに変換して判定）
     st.components.v1.html(f"""
     <script>
     function toHira(str) {{
@@ -112,12 +106,9 @@ with cols[3]:
     }}
     function checkAnswer() {{
         const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
-        const inputHira = toHira(inputRaw); // カタカナをひらがなへ
+        const inputHira = toHira(inputRaw);
         const answer = "{ans}";
         
-        // 漢字が含まれている場合の対策として、答えが含まれているか、
-        // または「桃」などの漢字対策はPython側のリストに頼らず、
-        // 入力の中に「もも」という音が潜んでいるかを見ます。
         if (inputHira.includes(answer) || inputRaw.includes(answer)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
@@ -140,6 +131,7 @@ with cols[4]:
 
 st.divider()
 
+# 画像表示部分
 if os.path.exists(current_quiz["file"]):
     with open(current_quiz["file"], "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode()
@@ -163,3 +155,5 @@ if os.path.exists(current_quiz["file"]):
     if st.session_state.status == "stop":
         st.write(f"### だい {st.session_state.quiz_index + 1} もん")
         st.text_input("こたえを にゅうりょく", key="speech_input", placeholder="マイクで おしゃべりしてね")
+else:
+    st.error(f"画像ファイル '{current_quiz['file']}' が見つかりません。同じフォルダに置いてあるか確認してね！")

@@ -4,14 +4,18 @@ import base64
 import time
 import os
 import random
+import re
 
 # 1. ページ設定
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
-# --- 音声準備（ここで全ての音をあらかじめ作っておきます） ---
+# --- 音声・判定の便利関数 ---
+def get_base64(file_path):
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
 def prepare_audio_files():
     if not os.path.exists("correct.mp3"):
-        # ピンポン音の代わりに、少しテンション高めの声でカバーします
         gTTS(text="ピンポーン！ 正解です！ やったね！", lang='ja').save("correct.mp3")
     if not os.path.exists("wrong.mp3"):
         gTTS(text="残念！ もっかい言ってみて！", lang='ja').save("wrong.mp3")
@@ -19,24 +23,6 @@ def prepare_audio_files():
         gTTS(text="これなーんだ？", lang='ja').save("intro.mp3")
 
 prepare_audio_files()
-
-def get_base64(file_path):
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
-# --- CSS設定 ---
-st.markdown(f"""
-<style>
-    .image-container {{
-        width: 100%; max-width: 800px; height: 500px; margin: 0 auto;
-        border: 5px solid #FF4B4B; border-radius: 30px; overflow: hidden;
-    }}
-    .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
-    div.stButton > button {{ height: 80px; font-size: 20px !important; font-weight: bold; border-radius: 15px; }}
-</style>
-<audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
-<audio id="audio-wrong" src="data:audio/mp3;base64,{get_base64('wrong.mp3')}"></audio>
-""", unsafe_allow_html=True)
 
 # --- クイズデータ ---
 original_quiz_data = [
@@ -65,11 +51,30 @@ if "shuffled_data" not in st.session_state:
     st.session_state.start_time = 0
     st.session_state.elapsed = 0
 
+# --- CSS設定 ---
+st.markdown(f"""
+<style>
+    .image-container {{
+        width: 100%; max-width: 800px; height: 500px; margin: 0 auto;
+        border: 5px solid #FF4B4B; border-radius: 30px; overflow: hidden;
+    }}
+    .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
+    div.stButton > button {{ height: 80px; font-size: 20px !important; font-weight: bold; border-radius: 15px; }}
+</style>
+<audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
+<audio id="audio-wrong" src="data:audio/mp3;base64,{get_base64('wrong.mp3')}"></audio>
+""", unsafe_allow_html=True)
+
 # --- 画面表示 ---
 st.markdown("<h1 style='text-align: center; font-size: 60px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
 
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
-ans = current_quiz["answer"]
+ans_hira = current_quiz["answer"]
+
+# カタカナへの変換（判定用）
+def hira_to_kata(text):
+    return "".join([chr(ord(c) + 96) if "ぁ" <= c <= "ん" else c for c in text])
+ans_kata = hira_to_kata(ans_hira)
 
 cols = st.columns(5)
 
@@ -87,6 +92,7 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
+    # 🎤 こたえる
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -102,15 +108,16 @@ with cols[2]:
     """, height=85)
 
 with cols[3]:
-    # ⭕️ チェック（判定を「含まれているか」に変更し、ひらがな/カタカナの違いも吸収）
+    # ⭕️ チェック（超・柔軟判定版）
     st.components.v1.html(f"""
     <script>
     function checkAnswer() {{
         const input = window.parent.document.querySelector('input[type="text"]').value;
-        const answer = "{ans}";
+        const ansHira = "{ans_hira}";
+        const ansKata = "{ans_kata}";
         
-        // ひらがな・カタカナを気にせず、答えの文字が入っていれば正解にする
-        if (input.indexOf(answer) !== -1) {{
+        // ひらがな、またはカタカナのどちらかが含まれていれば正解！
+        if (input.includes(ansHira) || input.includes(ansKata)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
             if(img) img.style.filter = "blur(0px)";
@@ -133,7 +140,6 @@ with cols[4]:
 st.divider()
 
 if os.path.exists(current_quiz["file"]):
-    # 画像表示
     with open(current_quiz["file"], "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode()
     

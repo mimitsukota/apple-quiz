@@ -10,8 +10,10 @@ st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
 # --- 便利関数 ---
 def get_base64(file_path):
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return ""
 
 def prepare_audio_files():
     if not os.path.exists("correct.mp3"):
@@ -23,18 +25,18 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- 新しいクイズデータ（BBAさんのリスト！） ---
+# --- クイズデータ（BBAさんの新しい写真リストに合わせました！） ---
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
-    {"answer": "ばす", "file": "bus.jpg"},
-    {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
-    {"answer": "でんしゃ", "file": "densya.jpg"},
     {"answer": "へりこぷたー", "file": "heri.jpg"},
     {"answer": "かぴばら", "file": "kapibara.jpg"},
-    {"answer": "きりん", "file": "kirin.jpg"},
-    {"answer": "らま", "file": "rama.jpg"},
     {"answer": "れっさーぱんだ", "file": "ressapanda.jpg"},
-    {"answer": "ろけっと", "file": "roketto.jpg"},
+    {"answer": "しんかんせん", "file": "sinkansen.jpg"},
+    {"answer": "しょうぼうしゃ", "file": "shoubousha.jpg"},
+    {"answer": "きゅうきゅうしゃ", "file": "kyuukyuusha.jpg"},
+    {"answer": "ぱとかー", "file": "pato-ka-.jpg"},
+    {"answer": "ちかてつ", "file": "tikatetsu.jpg"},
+    {"answer": "ものれーる", "file": "monore-ru.jpg"},
 ]
 
 if "shuffled_data" not in st.session_state:
@@ -47,17 +49,21 @@ if "shuffled_data" not in st.session_state:
     st.session_state.elapsed = 0
 
 # --- CSS設定 ---
+correct_b64 = get_base64('correct.mp3')
+wrong_b64 = get_base64('wrong.mp3')
+
 st.markdown(f"""
 <style>
     .image-container {{
         width: 100%; max-width: 800px; height: 500px; margin: 0 auto;
         border: 5px solid #FF4B4B; border-radius: 30px; overflow: hidden;
+        background-color: #f0f0f0;
     }}
     .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
     div.stButton > button {{ height: 80px; font-size: 20px !important; font-weight: bold; border-radius: 15px; }}
 </style>
-<audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
-<audio id="audio-wrong" src="data:audio/mp3;base64,{get_base64('wrong.mp3')}"></audio>
+<audio id="audio-correct" src="data:audio/mp3;base64,{correct_b64}"></audio>
+<audio id="audio-wrong" src="data:audio/mp3;base64,{wrong_b64}"></audio>
 """, unsafe_allow_html=True)
 
 # --- 画面表示 ---
@@ -108,7 +114,6 @@ with cols[3]:
         const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
         const inputHira = toHira(inputRaw);
         const answer = "{ans}";
-        
         if (inputHira.includes(answer) || inputRaw.includes(answer)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
@@ -128,13 +133,15 @@ with cols[4]:
             st.session_state.status = "playing"
             st.session_state.start_time = time.time()
             st.rerun()
+        else:
+            st.balloons()
+            st.success("ぜんぶ おわったよ！ すごいね！")
 
 st.divider()
 
 # 画像表示部分
 if os.path.exists(current_quiz["file"]):
-    with open(current_quiz["file"], "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
+    img_b64 = get_base64(current_quiz["file"])
     
     if st.session_state.status == "playing":
         current_elapsed = time.time() - st.session_state.start_time
@@ -146,10 +153,11 @@ if os.path.exists(current_quiz["file"]):
     else:
         calc_blur = 50
 
-    st.markdown(f'<div class="image-container"><img src="data:image/jpeg;base64,{img_base64}" class="quiz-img" style="filter: blur({calc_blur}px);"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="image-container"><img src="data:image/jpeg;base64,{img_b64}" class="quiz-img" style="filter: blur({calc_blur}px);"></div>', unsafe_allow_html=True)
     
     if st.session_state.status == "playing":
-        st.components.v1.html(f'<audio autoplay><source src="data:audio/mp3;base64,{get_base64("intro.mp3")}" type="audio/mp3"></audio>', height=0)
+        intro_b64 = get_base64("intro.mp3")
+        st.components.v1.html(f'<audio autoplay><source src="data:audio/mp3;base64,{intro_b64}" type="audio/mp3"></audio>', height=0)
         time.sleep(0.1); st.rerun()
 
     if st.session_state.status == "stop":

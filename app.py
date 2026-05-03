@@ -63,22 +63,21 @@ if "shuffled_data" not in st.session_state:
     st.session_state.start_time = 0
     st.session_state.elapsed = 0
 
-# --- CSS設定（スマホで見やすい大きなボタンに改造！） ---
+# --- CSS設定 ---
 st.markdown(f"""
 <style>
     .main {{ background-color: #FFF5F5; }}
     .image-container {{
         width: 100%; max-width: 500px; height: 350px; margin: 10px auto;
         border: 8px solid #FF4B4B; border-radius: 20px; overflow: hidden;
+        cursor: pointer; /* 指マークにする */
     }}
     .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
-    /* ボタンを縦に並べやすく、大きくする設定 */
     div.stButton > button {{
         width: 100% !important; height: 70px !important; 
         font-size: 24px !important; font-weight: bold !important;
         border-radius: 15px !important; margin-bottom: 5px !important;
     }}
-    /* 特別に目立たせたいボタンの色 */
     div.stButton > button[kind="primary"] {{ background-color: #FF4B4B; color: white; }}
 </style>
 <audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
@@ -86,7 +85,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- 1. タイトル ---
-st.markdown("<h1 style='text-align: center; font-size: 45px; color: #FF4B4B; margin-bottom: 0;'>これ なーんだ？</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; font-size: 40px; color: #FF4B4B; margin-bottom: 0;'>これ なーんだ？</h1>", unsafe_allow_html=True)
 
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 ans = current_quiz["answer"]
@@ -97,11 +96,12 @@ if st.button("▶️ はじめる！", type="primary", use_container_width=True)
     st.session_state.start_time = time.time()
     st.rerun()
 
-# --- 3. 画像（ぼかし） ---
+# --- 3. 画像（タップで止まる仕組み付き） ---
 if os.path.exists(current_quiz["file"]):
     with open(current_quiz["file"], "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode()
     
+    # ぼかし計算
     if st.session_state.status == "playing":
         current_elapsed = time.time() - st.session_state.start_time
         if current_elapsed >= 10:
@@ -112,23 +112,28 @@ if os.path.exists(current_quiz["file"]):
     else:
         calc_blur = 50
 
-    st.markdown(f'<div class="image-container"><img src="data:image/jpeg;base64,{img_base64}" class="quiz-img" style="filter: blur({calc_blur}px);"></div>', unsafe_allow_html=True)
+    # 画像表示。クリックしたら透明なボタンを押したことにするJavaScript
+    st.markdown(f"""
+        <div class="image-container" onclick="document.getElementById('stop_button').click()">
+            <img src="data:image/jpeg;base64,{img_base64}" class="quiz-img" style="filter: blur({calc_blur}px);">
+        </div>
+    """, unsafe_allow_html=True)
     
+    # 透明な「停止用」隠しボタン
+    if st.button("隠しストップ", key="stop_button", help=""):
+        if st.session_state.status == "playing":
+            st.session_state.elapsed = time.time() - st.session_state.start_time
+            st.session_state.status = "stop"
+            st.rerun()
+
     # 音楽再生
     if st.session_state.status == "playing":
         st.components.v1.html(f'<audio autoplay><source src="data:audio/mp3;base64,{get_base64("intro.mp3")}" type="audio/mp3"></audio>', height=0)
         time.sleep(0.1); st.rerun()
 
-# --- 4. わかったボタン ---
-if st.button("💡 わかった！", use_container_width=True):
-    if st.session_state.status == "playing":
-        st.session_state.elapsed = time.time() - st.session_state.start_time
-        st.session_state.status = "stop"
-        st.rerun()
-
-# --- 5 & 6. こたえる（音声） & 入力枠 ---
+# --- 4 & 5. こたえる（音声） & 入力枠 ---
 if st.session_state.status == "stop":
-    st.markdown("---")
+    st.markdown("<p style='text-align:center; font-weight:bold;'>わかったかな？</p>", unsafe_allow_html=True)
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -145,7 +150,7 @@ if st.session_state.status == "stop":
 
     st.text_input("ここに こたえが でるよ", key="speech_input")
 
-    # --- 7. チェックボタン ---
+    # --- 6. チェックボタン ---
     st.components.v1.html(f"""
     <script>
     function toHira(str) {{
@@ -170,8 +175,8 @@ if st.session_state.status == "stop":
     <button onclick="checkAnswer()" style="width:100%; height:70px; background-color:#FF9800; color:white; border:none; border-radius:15px; font-size:24px; font-weight:bold; cursor:pointer;">⭕ せいかいチェック！</button>
     """, height=80)
 
-# --- 8. つぎへボタン ---
-st.write("") # 少し隙間
+# --- 7. つぎへボタン ---
+st.write("") 
 if st.button("👉 つぎの問題へ", use_container_width=True):
     if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
         st.session_state.quiz_index += 1
@@ -181,3 +186,6 @@ if st.button("👉 つぎの問題へ", use_container_width=True):
     else:
         st.balloons()
         st.success("ぜんぶ おわったよ！ すごいね！")
+
+# 画面の下の方に「隠しストップ」ボタンが見えないように調整
+st.markdown("<style>#stop_button { visibility: hidden; position: absolute; }</style>", unsafe_allow_html=True)

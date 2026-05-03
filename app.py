@@ -25,7 +25,7 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ（全25問） ---
+# --- クイズデータ ---
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
     {"answer": "ばす", "file": "bus.jpg"},
@@ -63,100 +63,41 @@ if "shuffled_data" not in st.session_state:
     st.session_state.start_time = 0
     st.session_state.elapsed = 0
 
-# --- CSS設定 ---
+# --- CSS設定（スマホで見やすい大きなボタンに改造！） ---
 st.markdown(f"""
 <style>
+    .main {{ background-color: #FFF5F5; }}
     .image-container {{
-        width: 100%; max-width: 800px; height: 500px; margin: 0 auto;
-        border: 5px solid #FF4B4B; border-radius: 30px; overflow: hidden;
+        width: 100%; max-width: 500px; height: 350px; margin: 10px auto;
+        border: 8px solid #FF4B4B; border-radius: 20px; overflow: hidden;
     }}
     .quiz-img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
-    div.stButton > button {{ height: 80px; font-size: 20px !important; font-weight: bold; border-radius: 15px; }}
+    /* ボタンを縦に並べやすく、大きくする設定 */
+    div.stButton > button {{
+        width: 100% !important; height: 70px !important; 
+        font-size: 24px !important; font-weight: bold !important;
+        border-radius: 15px !important; margin-bottom: 5px !important;
+    }}
+    /* 特別に目立たせたいボタンの色 */
+    div.stButton > button[kind="primary"] {{ background-color: #FF4B4B; color: white; }}
 </style>
 <audio id="audio-correct" src="data:audio/mp3;base64,{get_base64('correct.mp3')}"></audio>
 <audio id="audio-wrong" src="data:audio/mp3;base64,{get_base64('wrong.mp3')}"></audio>
 """, unsafe_allow_html=True)
 
-# --- 画面表示 ---
-st.markdown("<h1 style='text-align: center; font-size: 60px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
+# --- 1. タイトル ---
+st.markdown("<h1 style='text-align: center; font-size: 45px; color: #FF4B4B; margin-bottom: 0;'>これ なーんだ？</h1>", unsafe_allow_html=True)
 
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
 ans = current_quiz["answer"]
 
-cols = st.columns(5)
+# --- 2. スタートボタン ---
+if st.button("▶️ はじめる！", type="primary", use_container_width=True):
+    st.session_state.status = "playing"
+    st.session_state.start_time = time.time()
+    st.rerun()
 
-with cols[0]:
-    if st.button("▶️スタート", use_container_width=True):
-        st.session_state.status = "playing"
-        st.session_state.start_time = time.time()
-        st.rerun()
-
-with cols[1]:
-    if st.button("💡わかった", use_container_width=True):
-        if st.session_state.status == "playing":
-            st.session_state.elapsed = time.time() - st.session_state.start_time
-            st.session_state.status = "stop"
-            st.rerun()
-
-with cols[2]:
-    # 🎤 こたえる
-    st.components.v1.html(f"""
-    <script>
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'ja-JP';
-    recognition.onresult = (e) => {{
-        const text = e.results[0][0].transcript;
-        const input = window.parent.document.querySelector('input[type="text"]');
-        input.value = text;
-        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-    }};
-    </script>
-    <button onclick="recognition.start()" style="width:100%; height:80px; background-color:#f0f2f6; border:1px solid #d3d3d3; border-radius:15px; font-size:20px; font-weight:bold; cursor:pointer;">🎤こたえる</button>
-    """, height=85)
-
-with cols[3]:
-    # ⭕️ チェック（判定ロジックを強化）
-    st.components.v1.html(f"""
-    <script>
-    function toHira(str) {{
-        return str.replace(/[ァ-ン]/g, function(s) {{
-            return String.fromCharCode(s.charCodeAt(0) - 0x60);
-        }});
-    }}
-    function checkAnswer() {{
-        const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
-        const inputHira = toHira(inputRaw);
-        const answer = "{ans}";
-        
-        // スペースを消したり、のばす棒を統一したりして判定しやすくする
-        const cleanInput = inputHira.trim().replace(/ /g, "").replace(/　/g, "");
-        const cleanAnswer = answer.trim();
-
-        if (cleanInput.includes(cleanAnswer) || cleanAnswer.includes(cleanInput) || inputRaw.includes(answer)) {{
-            window.parent.document.getElementById('audio-correct').play();
-            const img = window.parent.document.querySelector('.quiz-img');
-            if(img) img.style.filter = "blur(0px)";
-        }} else {{
-            window.parent.document.getElementById('audio-wrong').play();
-        }}
-    }}
-    </script>
-    <button onclick="checkAnswer()" style="width:100%; height:80px; background-color:#f0f2f6; border:1px solid #d3d3d3; border-radius:15px; font-size:20px; font-weight:bold; cursor:pointer;">⭕️チェック</button>
-    """, height=85)
-
-with cols[4]:
-    if st.button("👉つぎへ", use_container_width=True):
-        if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
-            st.session_state.quiz_index += 1
-            st.session_state.status = "playing"
-            st.session_state.start_time = time.time()
-            st.rerun()
-        else:
-            st.balloons()
-            st.success("ぜんぶ おわったよ！ すごいね！")
-
-st.divider()
-
+# --- 3. 画像（ぼかし） ---
 if os.path.exists(current_quiz["file"]):
     with open(current_quiz["file"], "rb") as f:
         img_base64 = base64.b64encode(f.read()).decode()
@@ -173,12 +114,70 @@ if os.path.exists(current_quiz["file"]):
 
     st.markdown(f'<div class="image-container"><img src="data:image/jpeg;base64,{img_base64}" class="quiz-img" style="filter: blur({calc_blur}px);"></div>', unsafe_allow_html=True)
     
+    # 音楽再生
     if st.session_state.status == "playing":
         st.components.v1.html(f'<audio autoplay><source src="data:audio/mp3;base64,{get_base64("intro.mp3")}" type="audio/mp3"></audio>', height=0)
         time.sleep(0.1); st.rerun()
 
-    if st.session_state.status == "stop":
-        st.write(f"### だい {st.session_state.quiz_index + 1} もん")
-        st.text_input("こたえを にゅうりょく", key="speech_input", placeholder="マイクで おしゃべりしてね")
-else:
-    st.error(f"写真 '{current_quiz['file']}' が見つかりません。")
+# --- 4. わかったボタン ---
+if st.button("💡 わかった！", use_container_width=True):
+    if st.session_state.status == "playing":
+        st.session_state.elapsed = time.time() - st.session_state.start_time
+        st.session_state.status = "stop"
+        st.rerun()
+
+# --- 5 & 6. こたえる（音声） & 入力枠 ---
+if st.session_state.status == "stop":
+    st.markdown("---")
+    st.components.v1.html(f"""
+    <script>
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'ja-JP';
+    recognition.onresult = (e) => {{
+        const text = e.results[0][0].transcript;
+        const input = window.parent.document.querySelector('input[type="text"]');
+        input.value = text;
+        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }};
+    </script>
+    <button onclick="recognition.start()" style="width:100%; height:70px; background-color:#4CAF50; color:white; border:none; border-radius:15px; font-size:24px; font-weight:bold; cursor:pointer;">🎤 おしゃべりして こたえる</button>
+    """, height=80)
+
+    st.text_input("ここに こたえが でるよ", key="speech_input")
+
+    # --- 7. チェックボタン ---
+    st.components.v1.html(f"""
+    <script>
+    function toHira(str) {{
+        return str.replace(/[ァ-ン]/g, function(s) {{
+            return String.fromCharCode(s.charCodeAt(0) - 0x60);
+        }});
+    }}
+    function checkAnswer() {{
+        const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
+        const inputHira = toHira(inputRaw);
+        const answer = "{ans}";
+        const cleanInput = inputHira.trim().replace(/ /g, "").replace(/　/g, "");
+        if (cleanInput.includes(answer) || answer.includes(cleanInput) || inputRaw.includes(answer)) {{
+            window.parent.document.getElementById('audio-correct').play();
+            const img = window.parent.document.querySelector('.quiz-img');
+            if(img) img.style.filter = "blur(0px)";
+        }} else {{
+            window.parent.document.getElementById('audio-wrong').play();
+        }}
+    }}
+    </script>
+    <button onclick="checkAnswer()" style="width:100%; height:70px; background-color:#FF9800; color:white; border:none; border-radius:15px; font-size:24px; font-weight:bold; cursor:pointer;">⭕ せいかいチェック！</button>
+    """, height=80)
+
+# --- 8. つぎへボタン ---
+st.write("") # 少し隙間
+if st.button("👉 つぎの問題へ", use_container_width=True):
+    if st.session_state.quiz_index < len(st.session_state.shuffled_data) - 1:
+        st.session_state.quiz_index += 1
+        st.session_state.status = "playing"
+        st.session_state.start_time = time.time()
+        st.rerun()
+    else:
+        st.balloons()
+        st.success("ぜんぶ おわったよ！ すごいね！")

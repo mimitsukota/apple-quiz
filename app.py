@@ -25,7 +25,7 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ（BBAさんの最新10枚リストに差し替えました） ---
+# --- クイズデータ（全25問になりました！） ---
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
     {"answer": "ばす", "file": "bus.jpg"},
@@ -37,6 +37,21 @@ original_quiz_data = [
     {"answer": "らま", "file": "rama.jpg"},
     {"answer": "れっさーぱんだ", "file": "ressapanda.jpg"},
     {"answer": "ろけっと", "file": "roketto.jpg"},
+    {"answer": "あざらし", "file": "azarashi.jpg"},
+    {"answer": "ばなな", "file": "banana.jpg"},
+    {"answer": "ぶどう", "file": "budou.jpg"},
+    {"answer": "はりねずみ", "file": "harinezumi.jpg"},
+    {"answer": "いちご", "file": "ichigo.jpg"},
+    {"answer": "きうい", "file": "kiui.jpg"},
+    {"answer": "めろん", "file": "meron.jpg"},
+    {"answer": "みかん", "file": "mikan.jpg"},
+    {"answer": "もも", "file": "momo.jpg"},
+    {"answer": "ぱんだ", "file": "panda.jpg"},
+    {"answer": "れもん", "file": "remon.jpg"},
+    {"answer": "しまえなが", "file": "simaenaga.jpg"},
+    {"answer": "りんご", "file": "ringo.jpg"},
+    {"answer": "すいか", "file": "suika.jpg"},
+    {"answer": "うさぎ", "file": "usagi.jpg"},
 ]
 
 if "shuffled_data" not in st.session_state:
@@ -84,7 +99,6 @@ with cols[1]:
             st.rerun()
 
 with cols[2]:
-    # 🎤 こたえる
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -100,7 +114,6 @@ with cols[2]:
     """, height=85)
 
 with cols[3]:
-    # ⭕️ チェック
     st.components.v1.html(f"""
     <script>
     function toHira(str) {{
@@ -161,4 +174,4 @@ if os.path.exists(current_quiz["file"]):
         st.write(f"### だい {st.session_state.quiz_index + 1} もん")
         st.text_input("こたえを にゅうりょく", key="speech_input", placeholder="マイクで おしゃべりしてね")
 else:
-    st.error(f"写真 '{current_quiz['file']}' が見つかりません。フォルダを確認してね！")
+    st.error(f"写真 '{current_quiz['file']}' が見つかりません。フォルダの中にちゃんとあるか確認してね！")

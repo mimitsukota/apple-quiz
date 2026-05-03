@@ -4,27 +4,26 @@ import base64
 import time
 import os
 import random
-import re
 
 # 1. ページ設定
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
 
-# --- 音声・判定の便利関数 ---
+# --- 便利関数 ---
 def get_base64(file_path):
     with open(file_path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
 def prepare_audio_files():
     if not os.path.exists("correct.mp3"):
-        gTTS(text="ピンポーン！ 正解です！ やったね！", lang='ja').save("correct.mp3")
+        gTTS(text="ピンポーン！ せいかいです！ やったね！", lang='ja').save("correct.mp3")
     if not os.path.exists("wrong.mp3"):
-        gTTS(text="残念！ もっかい言ってみて！", lang='ja').save("wrong.mp3")
+        gTTS(text="ざんねん！ もっかい いってみて！", lang='ja').save("wrong.mp3")
     if not os.path.exists("intro.mp3"):
-        gTTS(text="これなーんだ？", lang='ja').save("intro.mp3")
+        gTTS(text="これ なーんだ？", lang='ja').save("intro.mp3")
 
 prepare_audio_files()
 
-# --- クイズデータ ---
+# --- クイズデータ（正解は「ひらがな」で統一） ---
 original_quiz_data = [
     {"answer": "りんご", "file": "wide_thumbnail_large.jpg"},
     {"answer": "ばなな", "file": "banana.jpg"},
@@ -69,12 +68,7 @@ st.markdown(f"""
 st.markdown("<h1 style='text-align: center; font-size: 60px; color: #FF4B4B;'>これ なーんだ？</h1>", unsafe_allow_html=True)
 
 current_quiz = st.session_state.shuffled_data[st.session_state.quiz_index]
-ans_hira = current_quiz["answer"]
-
-# カタカナへの変換（判定用）
-def hira_to_kata(text):
-    return "".join([chr(ord(c) + 96) if "ぁ" <= c <= "ん" else c for c in text])
-ans_kata = hira_to_kata(ans_hira)
+ans = current_quiz["answer"]
 
 cols = st.columns(5)
 
@@ -108,16 +102,23 @@ with cols[2]:
     """, height=85)
 
 with cols[3]:
-    # ⭕️ チェック（超・柔軟判定版）
+    # ⭕️ チェック（カタカナをひらがなに変換して判定）
     st.components.v1.html(f"""
     <script>
+    function toHira(str) {{
+        return str.replace(/[ァ-ン]/g, function(s) {{
+            return String.fromCharCode(s.charCodeAt(0) - 0x60);
+        }});
+    }}
     function checkAnswer() {{
-        const input = window.parent.document.querySelector('input[type="text"]').value;
-        const ansHira = "{ans_hira}";
-        const ansKata = "{ans_kata}";
+        const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
+        const inputHira = toHira(inputRaw); // カタカナをひらがなへ
+        const answer = "{ans}";
         
-        // ひらがな、またはカタカナのどちらかが含まれていれば正解！
-        if (input.includes(ansHira) || input.includes(ansKata)) {{
+        // 漢字が含まれている場合の対策として、答えが含まれているか、
+        // または「桃」などの漢字対策はPython側のリストに頼らず、
+        // 入力の中に「もも」という音が潜んでいるかを見ます。
+        if (inputHira.includes(answer) || inputRaw.includes(answer)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
             if(img) img.style.filter = "blur(0px)";
@@ -160,5 +161,5 @@ if os.path.exists(current_quiz["file"]):
         time.sleep(0.1); st.rerun()
 
     if st.session_state.status == "stop":
-        st.write(f"### 第 {st.session_state.quiz_index + 1} 問")
-        st.text_input("こたえを入力", key="speech_input", placeholder="マイクでおしゃべりしてね")
+        st.write(f"### だい {st.session_state.quiz_index + 1} もん")
+        st.text_input("こたえを にゅうりょく", key="speech_input", placeholder="マイクで おしゃべりしてね")

@@ -4,6 +4,7 @@ import base64
 import time
 import os
 import random
+import re
 
 # 1. ページ設定
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
@@ -25,7 +26,7 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ（全34問） ---
+# --- クイズデータ ---
 original_quiz_data = [
     {"answer": "ひこうき", "file": "hikouki.jpg"},
     {"answer": "ばす", "file": "bus.jpg"},
@@ -136,6 +137,7 @@ if os.path.exists(current_quiz["file"]):
 
 if st.session_state.status == "stop":
     st.markdown("<p style='text-align:center; font-weight:bold; font-size:20px;'>わかったかな？</p>", unsafe_allow_html=True)
+    
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -152,19 +154,24 @@ if st.session_state.status == "stop":
 
     st.text_input("こたえ", key="speech_input", label_visibility="collapsed")
 
+    # ★最強の「おまけ」判定ロジック★
     st.components.v1.html(f"""
     <script>
-    function toHira(str) {{
-        return str.replace(/[ァ-ン]/g, function(s) {{
-            return String.fromCharCode(s.charCodeAt(0) - 0x60);
-        }});
-    }}
     function checkAnswer() {{
         const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
-        const inputHira = toHira(inputRaw);
         const answer = "{ans}";
-        const cleanInput = inputHira.trim().replace(/ /g, "").replace(/　/g, "");
-        if (cleanInput.includes(answer) || answer.includes(cleanInput) || inputRaw.includes(answer)) {{
+        
+        // カタカナをひらがなに変換する関数
+        const toHira = (str) => str.replace(/[ァ-ン]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60));
+        
+        // 判定用のクリーニング（ひらがな化、空白削除、。の削除、伸ばし棒の統一）
+        const clean = (str) => toHira(str).trim().replace(/[ 　。、]/g, "").replace(/[ー－―ー]/g, "ー");
+        
+        const cleanInput = clean(inputRaw);
+        const cleanAnswer = clean(answer);
+
+        // 部分一致を許可（「ひこうき」に対して「ひこうきだよ」でもOKにする）
+        if (cleanInput.includes(cleanAnswer) || cleanAnswer.includes(cleanInput)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
             if(img) img.style.filter = "blur(0px)";

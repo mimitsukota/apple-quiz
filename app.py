@@ -28,10 +28,10 @@ prepare_audio_files()
 
 # --- クイズデータ ---
 original_quiz_data = [
-    {"answer": "ひこうき", "file": "hikouki.jpg"},
+    
     {"answer": "ばす", "file": "bus.jpg"},
     {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
-    {"answer": "でんしゃ", "file": "densya.jpg"},
+    
     {"answer": "へりこぷたー", "file": "heri.jpg"},
     {"answer": "かぴばら", "file": "kapibara.jpg"},
     {"answer": "きりん", "file": "kirin.jpg"},
@@ -46,7 +46,7 @@ original_quiz_data = [
     {"answer": "きうい", "file": "kiui.jpg"},
     {"answer": "めろん", "file": "meron.jpg"},
     {"answer": "みかん", "file": "mikan.jpg"},
-    {"answer": "もも", "file": "momo.jpg"},
+    
     {"answer": "ぱんだ", "file": "panda.jpg"},
     {"answer": "れもん", "file": "remon.jpg"},
     {"answer": "しまえなが", "file": "simaenaga.jpg"},
@@ -54,14 +54,14 @@ original_quiz_data = [
     {"answer": "すいか", "file": "suika.jpg"},
     {"answer": "うさぎ", "file": "usagi.jpg"},
     {"answer": "ふぇれっと", "file": "feretto.jpg"},
-    {"answer": "ふぁいたくん", "file": "fIghtakun.jpg"},
+    
     {"answer": "みつき", "file": "mitsuki.jpg"},
-    {"answer": "なすばくん", "file": "nasuba.jpg"},
+    
     {"answer": "ぱぱ", "file": "papa.jpg"},
     {"answer": "とうご", "file": "pengintogo.jpg"},
-    {"answer": "せつぶん", "file": "setsubun.jpg"},
+    
     {"answer": "すらっくすさん", "file": "surakkusu.jpg"},
-    {"answer": "てれびーくん", "file": "tereby.jpg"},
+    
 ]
 
 if "shuffled_data" not in st.session_state:

@@ -4,7 +4,6 @@ import base64
 import time
 import os
 import random
-import re
 
 # 1. ページ設定
 st.set_page_config(page_title="これ なーんだ？", layout="wide")
@@ -26,12 +25,12 @@ def prepare_audio_files():
 
 prepare_audio_files()
 
-# --- クイズデータ ---
+# --- クイズデータ（全34問・答えはすべてひらがなでOK！） ---
 original_quiz_data = [
-    
+    {"answer": "ひこうき", "file": "hikouki.jpg"},
     {"answer": "ばす", "file": "bus.jpg"},
     {"answer": "ちかてつ", "file": "cikatetsu.jpg"},
-    
+    {"answer": "でんしゃ", "file": "densya.jpg"},
     {"answer": "へりこぷたー", "file": "heri.jpg"},
     {"answer": "かぴばら", "file": "kapibara.jpg"},
     {"answer": "きりん", "file": "kirin.jpg"},
@@ -46,7 +45,7 @@ original_quiz_data = [
     {"answer": "きうい", "file": "kiui.jpg"},
     {"answer": "めろん", "file": "meron.jpg"},
     {"answer": "みかん", "file": "mikan.jpg"},
-    
+    {"answer": "もも", "file": "momo.jpg"},
     {"answer": "ぱんだ", "file": "panda.jpg"},
     {"answer": "れもん", "file": "remon.jpg"},
     {"answer": "しまえなが", "file": "simaenaga.jpg"},
@@ -54,14 +53,14 @@ original_quiz_data = [
     {"answer": "すいか", "file": "suika.jpg"},
     {"answer": "うさぎ", "file": "usagi.jpg"},
     {"answer": "ふぇれっと", "file": "feretto.jpg"},
-    
+    {"answer": "ふぁいたくん", "file": "fIghtakun.jpg"},
     {"answer": "みつき", "file": "mitsuki.jpg"},
-    
+    {"answer": "なすばくん", "file": "nasuba.jpg"},
     {"answer": "ぱぱ", "file": "papa.jpg"},
-    {"answer": "とうご", "file": "pengintogo.jpg"},
-    
+    {"answer": "とうご", "file": "pengintogo.jpg"}, # ここも「とうご」のままで大丈夫です！
+    {"answer": "せつぶん", "file": "setsubun.jpg"},
     {"answer": "すらっくすさん", "file": "surakkusu.jpg"},
-    
+    {"answer": "てれびーくん", "file": "tereby.jpg"},
 ]
 
 if "shuffled_data" not in st.session_state:
@@ -138,12 +137,20 @@ if os.path.exists(current_quiz["file"]):
 if st.session_state.status == "stop":
     st.markdown("<p style='text-align:center; font-weight:bold; font-size:20px;'>わかったかな？</p>", unsafe_allow_html=True)
     
+    # 🎤 音声入力ボタン（ここで漢字をひらがなに変換する高度な処理を追加！）
     st.components.v1.html(f"""
     <script>
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'ja-JP';
     recognition.onresult = (e) => {{
-        const text = e.results[0][0].transcript;
+        let text = e.results[0][0].transcript;
+        
+        // 漢字をひらがなに変換する特別ルール（お孫さん特別仕様）
+        if (text.includes("飛行機")) text = text.replace("飛行機", "ひこうき");
+        if (text.includes("東吾")) text = text.replace("東吾", "とうご");
+        if (text.includes("節分")) text = text.replace("節分", "せつぶん");
+        if (text.includes("君")) text = text.replace("君", "くん");
+        
         const input = window.parent.document.querySelector('input[type="text"]');
         input.value = text;
         input.dispatchEvent(new Event('input', {{ bubbles: true }}));
@@ -154,23 +161,22 @@ if st.session_state.status == "stop":
 
     st.text_input("こたえ", key="speech_input", label_visibility="collapsed")
 
-    # ★最強の「おまけ」判定ロジック★
+    # ⭕️ チェックボタン
     st.components.v1.html(f"""
     <script>
     function checkAnswer() {{
         const inputRaw = window.parent.document.querySelector('input[type="text"]').value;
         const answer = "{ans}";
         
-        // カタカナをひらがなに変換する関数
         const toHira = (str) => str.replace(/[ァ-ン]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60));
-        
-        // 判定用のクリーニング（ひらがな化、空白削除、。の削除、伸ばし棒の統一）
         const clean = (str) => toHira(str).trim().replace(/[ 　。、]/g, "").replace(/[ー－―ー]/g, "ー");
         
-        const cleanInput = clean(inputRaw);
-        const cleanAnswer = clean(answer);
+        let cleanInput = clean(inputRaw);
+        let cleanAnswer = clean(answer);
 
-        // 部分一致を許可（「ひこうき」に対して「ひこうきだよ」でもOKにする）
+        // 再度、チェック時にも漢字の打ち消し
+        cleanInput = cleanInput.replace("飛行機","ひこうき").replace("東吾","とうご").replace("節分","せつぶん").replace("君","くん");
+
         if (cleanInput.includes(cleanAnswer) || cleanAnswer.includes(cleanInput)) {{
             window.parent.document.getElementById('audio-correct').play();
             const img = window.parent.document.querySelector('.quiz-img');
